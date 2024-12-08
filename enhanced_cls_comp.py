@@ -10,7 +10,6 @@ from sklearn.metrics import accuracy_score, f1_score
 # Download necessary NLTK data
 nltk.download('punkt')
 
-# Define BERTClassifier
 class BERTClassifier(nn.Module):
     def __init__(self, bert_model_name='bert-base-uncased', additional_feature_dim=3, num_labels=2):
         super(BERTClassifier, self).__init__()
@@ -28,7 +27,6 @@ class BERTClassifier(nn.Module):
         logits = self.classifier(combined_output)
         return logits
 
-# Define TextDataset
 class TextDataset(torch.utils.data.Dataset):
     def __init__(self, texts, labels, additional_features, tokenizer, max_len):
         self.texts = texts
@@ -64,7 +62,6 @@ class TextDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.texts)
 
-# Define helper functions
 def calculate_word_frequencies(df, label):
     filtered_texts = df[df['LABEL'] == label]['TEXT']
     all_words = filtered_texts.apply(word_tokenize).sum()
@@ -83,24 +80,20 @@ def extract_text_features(text, top_author_words, top_non_author_words):
         'text_length': text_length
     })
 
-# Load and preprocess training data
 train_df = pd.read_csv('train.csv')
 train_df = train_df.dropna(subset=['TEXT'])
 
-# Calculate word frequencies
+
 author_word_freq = calculate_word_frequencies(train_df, label=1)
 non_author_word_freq = calculate_word_frequencies(train_df, label=0)
 
-# Top words for feature extraction
 top_author_words = {word for word, _ in author_word_freq.most_common(50)}
 top_non_author_words = {word for word, _ in non_author_word_freq.most_common(50)}
 
-# Tokenizer setup
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 max_len = 512
 batch_size = 16
 
-# Prepare training dataset
 train_df[['author_word_count', 'non_author_word_count', 'text_length']] = train_df['TEXT'].apply(
     extract_text_features, args=(top_author_words, top_non_author_words)
 )
@@ -110,11 +103,9 @@ additional_features = train_df[['author_word_count', 'non_author_word_count', 't
 train_dataset = TextDataset(texts, labels, additional_features, tokenizer, max_len)
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-# Model setup
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = BERTClassifier().to(device)
 
-# Training
 def train_model(model, train_loader, device, epochs=3):
     optimizer = torch.optim.AdamW(model.parameters(), lr=2e-5)
     loss_fn = nn.CrossEntropyLoss()
@@ -141,31 +132,27 @@ def train_model(model, train_loader, device, epochs=3):
         print(f"Epoch {epoch + 1}, Loss: {epoch_loss:.4f}")
         training_logs.append(f"Epoch {epoch + 1}, Loss: {epoch_loss:.4f}")
 
-    # Save training logs
     with open('training_logs.txt', 'w') as f:
         f.writelines("\n".join(training_logs))
 
     return model
 
-print("Training the model...")
+print("train_model")
 trained_model = train_model(model, train_loader, device, epochs=1)
 torch.save(trained_model.state_dict(), 'bert_author_model.pth')
-print("Model saved.")
 
-# Preprocess test data
 test_df = pd.read_csv('test.csv')
 test_df = test_df.dropna(subset=['TEXT'])
 test_df[['author_word_count', 'non_author_word_count', 'text_length']] = test_df['TEXT'].apply(
     extract_text_features, args=(top_author_words, top_non_author_words)
 )
 
-# Prepare test dataset
 test_texts = test_df['TEXT']
 test_additional_features = test_df[['author_word_count', 'non_author_word_count', 'text_length']]
 test_dataset = TextDataset(test_texts, None, test_additional_features, tokenizer, max_len)
 test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
 
-# Evaluation
+
 def evaluate_model(model, test_loader, device):
     model.eval()
     predictions = []
@@ -181,10 +168,9 @@ def evaluate_model(model, test_loader, device):
 
     return predictions
 
-print("Evaluating the model...")
+print("evaluating_model")
 predictions = evaluate_model(trained_model, test_loader, device)
 
 # Save predictions
 output = pd.DataFrame({'ID': test_df['ID'], 'LABEL': predictions})
-output.to_csv('predictions.csv', index=False)
-print("Predictions saved to 'predictions.csv'.")
+output.to_csv('submission.csv', index=False)
