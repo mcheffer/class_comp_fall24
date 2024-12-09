@@ -138,7 +138,7 @@ def train_model(model, train_loader, device, epochs=3):
     return model
 
 print("train_model")
-trained_model = train_model(model, train_loader, device, epochs=1)
+trained_model = train_model(model, train_loader, device, epochs=10)
 torch.save(trained_model.state_dict(), 'bert_author_model.pth')
 
 test_df = pd.read_csv('test.csv')
